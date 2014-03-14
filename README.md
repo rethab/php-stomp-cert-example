@@ -18,4 +18,4 @@ client certificate is used for authentication.
 
 ## Related Linkes
 * PHP TLS Peer Verification RFC: https://wiki.php.net/rfc/tls-peer-verification
-* ActiveMQ Documentation: phttp://activemq.apache.org/getting-started.html
+* ActiveMQ Documentation: http://activemq.apache.org/getting-started.html
