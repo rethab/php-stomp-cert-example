@@ -67,24 +67,24 @@ client certificate is used for authentication.
    than just granting global write access. The following configuration snipped
    tells it to use the users.properties and groups.properties in combination
    with certificates. Place this in login.config:
-    activemq-certificate {
+    ```activemq-certificate {
         org.apache.activemq.jaas.TextFileCertificateLoginModule
             required
             org.apache.activemq.jaas.textfiledn.user="users.properties"
             org.apache.activemq.jaas.textfiledn.group="groups.properties";
-    };
+    };```
 2. Next up, let us map the certificate information to a username. The following
    line ought to be placed in the file users.properties and tells ActiveMQ to
    map a request with the following certificate information to the user php-client.
    Note that not just anybody could send a certificate with this information,
    since we imported the certificate into the truststore beforehand and only that
    one will be accepted.
-    php-client=CN=PHP Test, OU=Engineering, O=Company Test, L=Location Test, ST=State Test, C=US
+    `php-client=CN=PHP Test, OU=Engineering, O=Company Test, L=Location Test, ST=State Test, C=US`
 3. ActiveMQ gives permissions on topics and queues to groups, which is why we
    also need to create a group for our new user. The following line adds our
    user php-client to the group php-client. Note that, if the group should have
-   more than one user, separate them with a comma.
-    php-client=php-client
+   more than one user, separate them with a comma. gropus.properties:
+    `php-client=php-client`
 4. Finally, we tell ActiveMQ to use the configuration 'activemq-certificate' (as
    defined in login.config) with the 'jaasCertificateAuthenticationPlugin' and
    then setup the authorizationMap. We basically allow our members of the group
@@ -93,7 +93,7 @@ client certificate is used for authentication.
    write to it. Besides, we also need to grant the php-client group admin
    privileges on the advisory topics ('>' is a wildcard). Read more about
    advisory topics in the ActiveMQ manual.
-    <plugins>
+    ```<plugins>
         <jaasCertificateAuthenticationPlugin configuration="activemq-certificate"/>
         <authorizationPlugin>
             <map>
@@ -105,4 +105,4 @@ client certificate is used for authentication.
                 </authorizationMap>
             </map>
         </authorizationPlugin>
-    </plugins>
+    </plugins>```
