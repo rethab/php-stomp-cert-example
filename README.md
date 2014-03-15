@@ -52,10 +52,57 @@ client certificate is used for authentication.
    followed by the certificate. Note that if you have a certificate hierarchy, all intermediate
    certificates including the root CA itself must be part of this file as well.
    * `cat php-client.key php-client.crt > php-client-chain.pem`
-   * Or, alternatively: `cat php-client.key php-client.crt intermediate.crt rootca.crt > php-client-chain.pem`
+   * Or, alternatively (with intermediate certificates):
+         `cat php-client.key php-client.crt intermediate.crt rootca.crt > php-client-chain.pem`
 6. The following command imports the certificate of the php-client into the
    broker's truststore. It is perfectly fine to use an existing keystore, but
    you might want to have control over whom you trust and therefore create a new
    one. If the specified truststore does not exist, it is created.
    * `keytool -import php-client.crt -alias php-client -keystore path/to/activemq/conf/broker.ts`
 
+### ActiveMQ Configuration
+1. First of all, we need to tell ActiveMQ that we are going to authenticate users
+   based on their certificate. Although topics (and queues) are created lazily,
+   we want to authorize the groups to read and/or write on certain queues rather
+   than just granting global write access. The following configuration snipped
+   tells it to use the users.properties and groups.properties in combination
+   with certificates. Place this in login.config:
+    activemq-certificate {
+        org.apache.activemq.jaas.TextFileCertificateLoginModule
+            required
+            org.apache.activemq.jaas.textfiledn.user="users.properties"
+            org.apache.activemq.jaas.textfiledn.group="groups.properties";
+    };
+2. Next up, let us map the certificate information to a username. The following
+   line ought to be placed in the file users.properties and tells ActiveMQ to
+   map a request with the following certificate information to the user php-client.
+   Note that not just anybody could send a certificate with this information,
+   since we imported the certificate into the truststore beforehand and only that
+   one will be accepted.
+    php-client=CN=PHP Test, OU=Engineering, O=Company Test, L=Location Test, ST=State Test, C=US
+3. ActiveMQ gives permissions on topics and queues to groups, which is why we
+   also need to create a group for our new user. The following line adds our
+   user php-client to the group php-client. Note that, if the group should have
+   more than one user, separate them with a comma.
+    php-client=php-client
+4. Finally, we tell ActiveMQ to use the configuration 'activemq-certificate' (as
+   defined in login.config) with the 'jaasCertificateAuthenticationPlugin' and
+   then setup the authorizationMap. We basically allow our members of the group
+   php-client to create the queue (admin), because we will create it when we
+   send the first message, and members of the group php-client are allowed to
+   write to it. Besides, we also need to grant the php-client group admin
+   privileges on the advisory topics ('>' is a wildcard). Read more about
+   advisory topics in the ActiveMQ manual.
+    <plugins>
+        <jaasCertificateAuthenticationPlugin configuration="activemq-certificate"/>
+        <authorizationPlugin>
+            <map>
+                <authorizationMap>
+                    <authorizationEntries>
+                        <authorizationEntry topic="TestQueue" admin="php-client" write="php-client" />
+                        <authorizationEntry topic="ActiveMQ.Advisory.>" admin="php-client" />
+                    </authorizationEntries>
+                </authorizationMap>
+            </map>
+        </authorizationPlugin>
+    </plugins>
