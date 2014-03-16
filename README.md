@@ -106,3 +106,9 @@ client certificate is used for authentication.
             </map>
         </authorizationPlugin>
     </plugins>```
+
+### PHP Client Code
+Now that we have both the certificate of ActiveMQ (the only one we are going to
+accept as our peer) as well as a certificate we are going to use on the client
+side (and ActiveMQ knows about it by means of the trust store), we can put
+together the client side code to send a message to ActiveMQ from PHP.
