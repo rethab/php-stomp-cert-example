@@ -48,17 +48,12 @@ client certificate is used for authentication.
    * `openssl rsa -in php-client.key -out php-client.key`
 4. Self-sign the certificate signing request (the CSR is not required anymore after this step)
    * `openssl x509 -req -days 365 -in php-client.csr -signkey php-client.key -out php-client.crt`
-5. Create the client chain. PHP needs a concatenanted file starting with the private key
-   followed by the certificate. Note that if you have a certificate hierarchy, all intermediate
-   certificates including the root CA itself must be part of this file as well.
-   * `cat php-client.key php-client.crt > php-client-chain.pem`
-   * Or, alternatively (with intermediate certificates):
-         `cat php-client.key php-client.crt intermediate.crt rootca.crt > php-client-chain.pem`
-6. The following command imports the certificate of the php-client into the
+5. The following command imports the certificate of the php-client into the
    broker's truststore. It is perfectly fine to use an existing keystore, but
    you might want to have control over whom you trust and therefore create a new
-   one. If the specified truststore does not exist, it is created.
-   * `keytool -import php-client.crt -alias php-client -keystore path/to/activemq/conf/broker.ts`
+   one. If the specified truststore does not exist, it is created (it will thus
+   ask you for a password).
+   * `keytool -import -file php-client.crt -alias php-client -keystore path/to/activemq/conf/broker.ts`
 
 ### ActiveMQ Configuration
 1. First of all, we need to tell ActiveMQ that we are going to authenticate users
@@ -67,12 +62,14 @@ client certificate is used for authentication.
    than just granting global write access. The following configuration snipped
    tells it to use the users.properties and groups.properties in combination
    with certificates. Place this in login.config:
-    ```activemq-certificate {
+    ```
+    activemq-certificate {
         org.apache.activemq.jaas.TextFileCertificateLoginModule
             required
             org.apache.activemq.jaas.textfiledn.user="users.properties"
             org.apache.activemq.jaas.textfiledn.group="groups.properties";
-    };```
+    };
+    ```
 2. Next up, let us map the certificate information to a username. The following
    line ought to be placed in the file users.properties and tells ActiveMQ to
    map a request with the following certificate information to the user php-client.
@@ -85,7 +82,7 @@ client certificate is used for authentication.
    user php-client to the group php-client. Note that, if the group should have
    more than one user, separate them with a comma. gropus.properties:
     `php-client=php-client`
-4. Finally, we tell ActiveMQ to use the configuration 'activemq-certificate' (as
+4. We now tell ActiveMQ to use the configuration 'activemq-certificate' (as
    defined in login.config) with the 'jaasCertificateAuthenticationPlugin' and
    then setup the authorizationMap. We basically allow our members of the group
    php-client to create the queue (admin), because we will create it when we
@@ -93,7 +90,8 @@ client certificate is used for authentication.
    write to it. Besides, we also need to grant the php-client group admin
    privileges on the advisory topics ('>' is a wildcard). Read more about
    advisory topics in the ActiveMQ manual.
-    ```<plugins>
+    ```
+    <plugins>
         <jaasCertificateAuthenticationPlugin configuration="activemq-certificate"/>
         <authorizationPlugin>
             <map>
@@ -105,10 +103,27 @@ client certificate is used for authentication.
                 </authorizationMap>
             </map>
         </authorizationPlugin>
-    </plugins>```
+    </plugins>
+    ```
+5. Finally, we configure the stomp connect in the activemq.xml accordingly.
+   Suffix the URI part of the transport connector entry scheme with '+ssl' and add a
+   requireClientAuth to the parameters of the URI such that it now looks like this:
+   `<transportConnector name="stomp" uri="stomp+ssl://0.0.0.0:61613?requireClientAuth=true&amp;maximumConnections=1000&amp;wireFormat.maxFrameSize=104857600"/>`
 
 ### PHP Client Code
 Now that we have both the certificate of ActiveMQ (the only one we are going to
 accept as our peer) as well as a certificate we are going to use on the client
 side (and ActiveMQ knows about it by means of the trust store), we can put
 together the client side code to send a message to ActiveMQ from PHP.
+1. PHP needs a concatenanted file starting with the private key
+   followed by the certificate. Note that if you have a certificate hierarchy, all intermediate
+   certificates including the root CA itself must be part of this file as well.
+   * `cat php-client.key php-client.crt > php-client-chain.pem`
+   * Or, alternatively (with intermediate certificates):
+         `cat php-client.key php-client.crt intermediate.crt rootca.crt > php-client-chain.pem`
+
+## Debugging
+- Connect to the server and get the server certificate chain as well as the
+  potentially accepted certificates from a client. You should see the
+  certificate your previously put into the truststore:
+  `openssl s_client -connect localhost:61613 -cert php-client-chain.pem -debug -showcerts`
