@@ -107,8 +107,8 @@ client certificate is used for authentication.
     ```
 5. Finally, we configure the stomp connect in the activemq.xml accordingly.
    Suffix the URI part of the transport connector entry scheme with '+ssl' and add a
-   requireClientAuth to the parameters of the URI such that it now looks like this:
-   `<transportConnector name="stomp" uri="stomp+ssl://0.0.0.0:61613?requireClientAuth=true&amp;maximumConnections=1000&amp;wireFormat.maxFrameSize=104857600"/>`
+   needClientAuth to the parameters of the URI such that it now looks like this:
+   `<transportConnector name="stomp" uri="stomp+ssl://0.0.0.0:61613?needClientAuth=true&amp;maximumConnections=1000&amp;wireFormat.maxFrameSize=104857600"/>`
 
 ### PHP Client Code
 Now that we have both the certificate of ActiveMQ (the only one we are going to
