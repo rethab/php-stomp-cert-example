@@ -122,7 +122,7 @@
         -->
         <transportConnectors>
             <!-- DOS protection, limit concurrent connections to 1000 and frame size to 100MB -->
-            <transportConnector name="stomp" uri="stomp+ssl://0.0.0.0:61613?requireClientAuth=true&amp;maximumConnections=1000&amp;wireFormat.maxFrameSize=104857600"/>
+            <transportConnector name="stomp" uri="stomp+ssl://0.0.0.0:61613?needClientAuth=true&amp;maximumConnections=1000&amp;wireFormat.maxFrameSize=104857600"/>
         </transportConnectors>
 
         <!-- destroy the spring context on shutdown to stop jetty -->
