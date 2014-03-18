@@ -121,9 +121,36 @@ together the client side code to send a message to ActiveMQ from PHP.
    * `cat php-client.key php-client.crt > php-client-chain.pem`
    * Or, alternatively (with intermediate certificates):
          `cat php-client.key php-client.crt intermediate.crt rootca.crt > php-client-chain.pem`
+2. We use the certficate of the broker directly from the PHP side rather than
+   using a common CA. For that, we need to export the certificate in the correct
+   format from the broker's keystore (note the '-rfc' option):
+   `keytool -export -rfc -alias broker.ks -keystore conf/broker.ks file broker.crt`
+3. Now we can pass these two files as ssl context parameters to stomp using the
+   following array:
+   ```
+   $opts = array(
+        'ssl' => array(
+            'local_cert' => './php-client-chain.pem',
+            'cafile' => './broker.crt',
+            'verify_peer' => true,
+        )
+    );
+   ```
+4. Finally, we can send the message to stomp:
+   ```
+   $con = new FuseSource\Stomp\Stomp('ssl://localhost:61613', $opts);
+   $con->connect();
+
+   $body = json_encode(array('message' => array('content' => 'hello, world')));
+   $headers = array('persistent' => 'true');
+   var_dump($con->send('/topic/TestQueue', $body, $headers));
+   ```
 
 ## Debugging
 - Connect to the server and get the server certificate chain as well as the
   potentially accepted certificates from a client. You should see the
   certificate your previously put into the truststore:
   `openssl s_client -connect localhost:61613 -cert php-client-chain.pem -debug -showcerts`
+- Is the certficiate in the correct format? Try to parse it with the following
+  two functions and look at the output (with, e.g. var_dump):
+  `openssl_parse_x509(file_get_contents('./file.crt'))`

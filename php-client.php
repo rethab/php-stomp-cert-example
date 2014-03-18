@@ -7,14 +7,16 @@ require_once('FuseSource/Stomp/Exception/StompException.php');
 
 error_reporting(E_ALL);
 
-$cafile = './oldca.crt';
+$cafile = './broker.crt';
+$fakecafile = './fake.crt';
 $local_cert = './php-client-chain.pem';
-
-var_dump(openssl_x509_parse(file_get_contents($local_cert)));
 
 $opts = array(
     'ssl' => array(
-        'local_cert' => $local_cert 
+        'local_cert' => $local_cert,
+        'cafile' => $cafile,
+        /*'cafile' => $fakecafile,*/
+        'verify_peer' => true,
     )
 );
 
