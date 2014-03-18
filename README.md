@@ -153,4 +153,4 @@ together the client side code to send a message to ActiveMQ from PHP.
   `openssl s_client -connect localhost:61613 -cert php-client-chain.pem -debug -showcerts`
 - Is the certficiate in the correct format? Try to parse it with the following
   two functions and look at the output (with, e.g. var_dump):
-  `openssl_parse_x509(file_get_contents('./file.crt'))`
+  `openssl_x509_parse(file_get_contents('./file.crt'))`
