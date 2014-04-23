@@ -46,37 +46,213 @@
 
 
       <section id="main_content">
-        <h3>
-<a name="welcome-to-github-pages" class="anchor" href="#welcome-to-github-pages"><span class="octicon octicon-link"></span></a>Welcome to GitHub Pages.</h3>
+        <p>The current version of the PHP Stomp library uses the function fsockopen, which
+makes it impossible to send a certificate. On top of that, PHP does not verify
+certificates of peers by default in versions before PHP 5.6.</p>
 
-<p>This automatic page generator is the easiest way to create beautiful pages for all of your projects. Author your page content here using GitHub Flavored Markdown, select a template crafted by a designer, and publish. After your page is generated, you can check out the new branch:</p>
+<p>This project aims to demonstrate how a modified version of the PHP Stomp library
+may be used to communicate securely with a message broker. As an example,
+ActiveMQ has been used, but this would really work with any broker that supports
+Stomp.</p>
 
-<pre><code>$ cd your_repo_root/repo_name
-$ git fetch origin
-$ git checkout gh-pages
+<p>By securely, I mean the client verifies the certificate of the server. And, a
+client certificate is used for authentication.</p>
+
+<h2>
+<a name="related-linkes" class="anchor" href="#related-linkes"><span class="octicon octicon-link"></span></a>Related Linkes</h2>
+
+<ul>
+<li>PHP TLS Peer Verification RFC: <a href="https://wiki.php.net/rfc/tls-peer-verification">https://wiki.php.net/rfc/tls-peer-verification</a>
+</li>
+<li>ActiveMQ Documentation: <a href="http://activemq.apache.org/getting-started.html">http://activemq.apache.org/getting-started.html</a>
+</li>
+</ul><h2>
+<a name="step-by-step" class="anchor" href="#step-by-step"><span class="octicon octicon-link"></span></a>Step by Step</h2>
+
+<h3>
+<a name="active-mq-certificate" class="anchor" href="#active-mq-certificate"><span class="octicon octicon-link"></span></a>Active MQ Certificate</h3>
+
+<ol>
+<li>Download ActiveMQ from the official website and unpack it</li>
+<li>Delete the original keystore and truststore (conf/broker.{k,t}s)</li>
+<li>Create a new Keystore with a key using keytool (comes with JDK)
+
+<ol>
+<li><code>keytool -genkey -keyalg RSA -alias broker -keystore broker.ks -validity 365 -keysize 2048</code></li>
+</ol>
+</li>
+<li>Set it in the activemq config (conf/activemq.xml). The truststore is
+configured here as well. We are going to create it with the client
+certificate though.
+<code>&lt;sslContext&gt;
+       &lt;sslContext keyStore="file:${activemq.base}/conf/broker.ks/"
+        keyStorePassword="broker"
+        trustStore="file:${activemq.base}/conf/broker.ts/"
+        trustStorePassword="broker" /&gt;
+   &lt;/sslContext&gt;
+</code>
+</li>
+</ol><h3>
+<a name="php-client-certificate" class="anchor" href="#php-client-certificate"><span class="octicon octicon-link"></span></a>PHP Client Certificate</h3>
+
+<ol>
+<li>Create a keypair for the client
+
+<ul>
+<li><code>openssl genrsa -des3 -out php-client.key 2048</code></li>
+</ul>
+</li>
+<li>Create a signing request
+
+<ul>
+<li><code>openssl req -new -key php-client.key -out php-client.csr</code></li>
+</ul>
+</li>
+<li>We remove the password from the client for convenience. We could have left it
+encrypted and tell PHP the password with the ssl context parameters.
+
+<ul>
+<li><code>openssl rsa -in php-client.key -out php-client.key</code></li>
+</ul>
+</li>
+<li>Self-sign the certificate signing request (the CSR is not required anymore after this step)
+
+<ul>
+<li><code>openssl x509 -req -days 365 -in php-client.csr -signkey php-client.key -out php-client.crt</code></li>
+</ul>
+</li>
+<li>The following command imports the certificate of the php-client into the
+broker's truststore. It is perfectly fine to use an existing keystore, but
+you might want to have control over whom you trust and therefore create a new
+one. If the specified truststore does not exist, it is created (it will thus
+ask you for a password).
+
+<ul>
+<li><code>keytool -import -file php-client.crt -alias php-client -keystore path/to/activemq/conf/broker.ts</code></li>
+</ul>
+</li>
+</ol><h3>
+<a name="activemq-configuration" class="anchor" href="#activemq-configuration"><span class="octicon octicon-link"></span></a>ActiveMQ Configuration</h3>
+
+<ol>
+<li>First of all, we need to tell ActiveMQ that we are going to authenticate users
+based on their certificate. Although topics (and queues) are created lazily,
+we want to authorize the groups to read and/or write on certain queues rather
+than just granting global write access. The following configuration snipped
+tells it to use the users.properties and groups.properties in combination
+with certificates. Place this in login.config:
+<code>
+activemq-certificate {
+    org.apache.activemq.jaas.TextFileCertificateLoginModule
+        required
+        org.apache.activemq.jaas.textfiledn.user="users.properties"
+        org.apache.activemq.jaas.textfiledn.group="groups.properties";
+};
+</code>
+</li>
+<li>Next up, let us map the certificate information to a username. The following
+line ought to be placed in the file users.properties and tells ActiveMQ to
+map a request with the following certificate information to the user php-client.
+Note that not just anybody could send a certificate with this information,
+since we imported the certificate into the truststore beforehand and only that
+one will be accepted.
+<code>php-client=CN=PHP Test, OU=Engineering, O=Company Test, L=Location Test, ST=State Test, C=US</code>
+</li>
+<li>ActiveMQ gives permissions on topics and queues to groups, which is why we
+also need to create a group for our new user. The following line adds our
+user php-client to the group php-client. Note that, if the group should have
+more than one user, separate them with a comma. gropus.properties:
+<code>php-client=php-client</code>
+</li>
+<li>We now tell ActiveMQ to use the configuration 'activemq-certificate' (as
+defined in login.config) with the 'jaasCertificateAuthenticationPlugin' and
+then setup the authorizationMap. We basically allow our members of the group
+php-client to create the queue (admin), because we will create it when we
+send the first message, and members of the group php-client are allowed to
+write to it. Besides, we also need to grant the php-client group admin
+privileges on the advisory topics ('&gt;' is a wildcard). Read more about
+advisory topics in the ActiveMQ manual.
+<code>
+&lt;plugins&gt;
+    &lt;jaasCertificateAuthenticationPlugin configuration="activemq-certificate"/&gt;
+    &lt;authorizationPlugin&gt;
+        &lt;map&gt;
+            &lt;authorizationMap&gt;
+                &lt;authorizationEntries&gt;
+                    &lt;authorizationEntry topic="TestQueue" admin="php-client" write="php-client" /&gt;
+                    &lt;authorizationEntry topic="ActiveMQ.Advisory.&gt;" admin="php-client" /&gt;
+                &lt;/authorizationEntries&gt;
+            &lt;/authorizationMap&gt;
+        &lt;/map&gt;
+    &lt;/authorizationPlugin&gt;
+&lt;/plugins&gt;
+</code>
+</li>
+<li>Finally, we configure the stomp connect in the activemq.xml accordingly.
+Suffix the URI part of the transport connector entry scheme with '+ssl' and add a
+needClientAuth to the parameters of the URI such that it now looks like this:
+<code>&lt;transportConnector name="stomp" uri="stomp+ssl://0.0.0.0:61613?needClientAuth=true&amp;amp;maximumConnections=1000&amp;amp;wireFormat.maxFrameSize=104857600"/&gt;</code>
+</li>
+</ol><h3>
+<a name="php-client-code" class="anchor" href="#php-client-code"><span class="octicon octicon-link"></span></a>PHP Client Code</h3>
+
+<p>Now that we have both the certificate of ActiveMQ (the only one we are going to
+accept as our peer) as well as a certificate we are going to use on the client
+side (and ActiveMQ knows about it by means of the trust store), we can put
+together the client side code to send a message to ActiveMQ from PHP.
+1. PHP needs a concatenanted file starting with the private key
+   followed by the certificate. Note that if you have a certificate hierarchy, all intermediate
+   certificates including the root CA itself must be part of this file as well.</p>
+
+<ul>
+<li><code>cat php-client.key php-client.crt &gt; php-client-chain.pem</code></li>
+<li>
+<p>Or, alternatively (with intermediate certificates):
+     <code>cat php-client.key php-client.crt intermediate.crt rootca.crt &gt; php-client-chain.pem</code></p>
+
+<ol>
+<li>We use the certficate of the broker directly from the PHP side rather than
+using a common CA. For that, we need to export the certificate in the correct
+format from the broker's keystore (note the '-rfc' option):
+<code>keytool -export -rfc -alias broker.ks -keystore conf/broker.ks file broker.crt</code>
+</li>
+<li>Now we can pass these two files as ssl context parameters to stomp using the
+following array:</li>
+</ol>
+<pre><code>$opts = array(
+    'ssl' =&gt; array(
+        'local_cert' =&gt; './php-client-chain.pem',
+        'cafile' =&gt; './broker.crt',
+        'verify_peer' =&gt; true,
+    )
+);
 </code></pre>
 
-<p>If you're using the GitHub for Mac, simply sync your repository and you'll see the new branch.</p>
+<ol>
+<li>Finally, we can send the message to stomp:</li>
+</ol>
+<pre><code>$con = new FuseSource\Stomp\Stomp('ssl://localhost:61613', $opts);
+$con-&gt;connect();
 
-<h3>
-<a name="designer-templates" class="anchor" href="#designer-templates"><span class="octicon octicon-link"></span></a>Designer Templates</h3>
+$body = json_encode(array('message' =&gt; array('content' =&gt; 'hello, world')));
+$headers = array('persistent' =&gt; 'true');
+var_dump($con-&gt;send('/topic/TestQueue', $body, $headers));
+</code></pre>
+</li>
+</ul><h2>
+<a name="debugging" class="anchor" href="#debugging"><span class="octicon octicon-link"></span></a>Debugging</h2>
 
-<p>We've crafted some handsome templates for you to use. Go ahead and continue to layouts to browse through them. You can easily go back to edit your page before publishing. After publishing your page, you can revisit the page generator and switch to another theme. Your Page content will be preserved if it remained markdown format.</p>
-
-<h3>
-<a name="rather-drive-stick" class="anchor" href="#rather-drive-stick"><span class="octicon octicon-link"></span></a>Rather Drive Stick?</h3>
-
-<p>If you prefer to not use the automatic generator, push a branch named <code>gh-pages</code> to your repository to create a page manually. In addition to supporting regular HTML content, GitHub Pages support Jekyll, a simple, blog aware static site generator written by our own Tom Preston-Werner. Jekyll makes it easy to create site-wide headers and footers without having to copy them across every page. It also offers intelligent blog support and other advanced templating features.</p>
-
-<h3>
-<a name="authors-and-contributors" class="anchor" href="#authors-and-contributors"><span class="octicon octicon-link"></span></a>Authors and Contributors</h3>
-
-<p>You can <a href="https://github.com/blog/821" class="user-mention">@mention</a> a GitHub username to generate a link to their profile. The resulting <code>&lt;a&gt;</code> element will link to the contributor's GitHub Profile. For example: In 2007, Chris Wanstrath (<a href="https://github.com/defunkt" class="user-mention">@defunkt</a>), PJ Hyett (<a href="https://github.com/pjhyett" class="user-mention">@pjhyett</a>), and Tom Preston-Werner (<a href="https://github.com/mojombo" class="user-mention">@mojombo</a>) founded GitHub.</p>
-
-<h3>
-<a name="support-or-contact" class="anchor" href="#support-or-contact"><span class="octicon octicon-link"></span></a>Support or Contact</h3>
-
-<p>Having trouble with Pages? Check out the documentation at <a href="http://help.github.com/pages">http://help.github.com/pages</a> or contact <a href="mailto:support@github.com">support@github.com</a> and we’ll help you sort it out.</p>
+<ul>
+<li>Connect to the server and get the server certificate chain as well as the
+potentially accepted certificates from a client. You should see the
+certificate your previously put into the truststore:
+<code>openssl s_client -connect localhost:61613 -cert php-client-chain.pem -debug -showcerts</code>
+</li>
+<li>Is the certficiate in the correct format? Try to parse it with the following
+two functions and look at the output (with, e.g. var_dump):
+<code>openssl_x509_parse(file_get_contents('./file.crt'))</code>
+</li>
+</ul>
       </section>
 
       <footer>
