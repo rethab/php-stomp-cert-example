@@ -1,3 +1,5 @@
+Prettier version of this page: http://rethab.github.io/php-stomp-cert-example
+
 php-stomp-cert-example
 ======================
 
