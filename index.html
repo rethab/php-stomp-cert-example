@@ -3,11 +3,11 @@
   <head>
     <meta charset='utf-8'>
     <meta http-equiv="X-UA-Compatible" content="chrome=1">
-    <meta name="viewport" content="width=640" />
+    <meta name="viewport" content="width=640">
 
-    <link rel="stylesheet" href="stylesheets/core.css" media="screen"/>
-    <link rel="stylesheet" href="stylesheets/mobile.css" media="handheld, only screen and (max-device-width:640px)"/>
-    <link rel="stylesheet" href="stylesheets/pygment_trac.css"/>
+    <link rel="stylesheet" href="stylesheets/core.css" media="screen">
+    <link rel="stylesheet" href="stylesheets/mobile.css" media="handheld, only screen and (max-device-width:640px)">
+    <link rel="stylesheet" href="stylesheets/pygment_trac.css">
 
     <script type="text/javascript" src="javascripts/modernizr.js"></script>
     <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
@@ -59,18 +59,25 @@ Stomp.</p>
 client certificate is used for authentication.</p>
 
 <h2>
-<a name="related-linkes" class="anchor" href="#related-linkes"><span class="octicon octicon-link"></span></a>Related Linkes</h2>
+<a id="related-linkes" class="anchor" href="#related-linkes" aria-hidden="true"><span class="octicon octicon-link"></span></a>Related Linkes</h2>
 
 <ul>
 <li>PHP TLS Peer Verification RFC: <a href="https://wiki.php.net/rfc/tls-peer-verification">https://wiki.php.net/rfc/tls-peer-verification</a>
 </li>
 <li>ActiveMQ Documentation: <a href="http://activemq.apache.org/getting-started.html">http://activemq.apache.org/getting-started.html</a>
 </li>
-</ul><h2>
-<a name="step-by-step" class="anchor" href="#step-by-step"><span class="octicon octicon-link"></span></a>Step by Step</h2>
+</ul>
+
+<h2>
+<a id="important-note" class="anchor" href="#important-note" aria-hidden="true"><span class="octicon octicon-link"></span></a>Important note</h2>
+
+<p><em>Everything described in this guide assumes you are using the forked version of stomp-php (<a href="https://github.com/rethab/stomp-php">https://github.com/rethab/stomp-php</a>). It is required since the standard version does not support any certificate verification</em></p>
+
+<h2>
+<a id="step-by-step" class="anchor" href="#step-by-step" aria-hidden="true"><span class="octicon octicon-link"></span></a>Step by Step</h2>
 
 <h3>
-<a name="active-mq-certificate" class="anchor" href="#active-mq-certificate"><span class="octicon octicon-link"></span></a>Active MQ Certificate</h3>
+<a id="active-mq-certificate" class="anchor" href="#active-mq-certificate" aria-hidden="true"><span class="octicon octicon-link"></span></a>Active MQ Certificate</h3>
 
 <ol>
 <li>Download ActiveMQ from the official website and unpack it</li>
@@ -92,8 +99,10 @@ certificate though.
    &lt;/sslContext&gt;
 </code>
 </li>
-</ol><h3>
-<a name="php-client-certificate" class="anchor" href="#php-client-certificate"><span class="octicon octicon-link"></span></a>PHP Client Certificate</h3>
+</ol>
+
+<h3>
+<a id="php-client-certificate" class="anchor" href="#php-client-certificate" aria-hidden="true"><span class="octicon octicon-link"></span></a>PHP Client Certificate</h3>
 
 <ol>
 <li>Create a keypair for the client
@@ -131,8 +140,10 @@ ask you for a password).
 <li><code>keytool -import -file php-client.crt -alias php-client -keystore path/to/activemq/conf/broker.ts</code></li>
 </ul>
 </li>
-</ol><h3>
-<a name="activemq-configuration" class="anchor" href="#activemq-configuration"><span class="octicon octicon-link"></span></a>ActiveMQ Configuration</h3>
+</ol>
+
+<h3>
+<a id="activemq-configuration" class="anchor" href="#activemq-configuration" aria-hidden="true"><span class="octicon octicon-link"></span></a>ActiveMQ Configuration</h3>
 
 <ol>
 <li>First of all, we need to tell ActiveMQ that we are going to authenticate users
@@ -193,8 +204,10 @@ Suffix the URI part of the transport connector entry scheme with '+ssl' and add 
 needClientAuth to the parameters of the URI such that it now looks like this:
 <code>&lt;transportConnector name="stomp" uri="stomp+ssl://0.0.0.0:61613?needClientAuth=true&amp;amp;maximumConnections=1000&amp;amp;wireFormat.maxFrameSize=104857600"/&gt;</code>
 </li>
-</ol><h3>
-<a name="php-client-code" class="anchor" href="#php-client-code"><span class="octicon octicon-link"></span></a>PHP Client Code</h3>
+</ol>
+
+<h3>
+<a id="php-client-code" class="anchor" href="#php-client-code" aria-hidden="true"><span class="octicon octicon-link"></span></a>PHP Client Code</h3>
 
 <p>Now that we have both the certificate of ActiveMQ (the only one we are going to
 accept as our peer) as well as a certificate we are going to use on the client
@@ -219,6 +232,7 @@ format from the broker's keystore (note the '-rfc' option):
 <li>Now we can pass these two files as ssl context parameters to stomp using the
 following array:</li>
 </ol>
+
 <pre><code>$opts = array(
     'ssl' =&gt; array(
         'local_cert' =&gt; './php-client-chain.pem',
@@ -231,6 +245,7 @@ following array:</li>
 <ol>
 <li>Finally, we can send the message to stomp:</li>
 </ol>
+
 <pre><code>$con = new FuseSource\Stomp\Stomp('ssl://localhost:61613', $opts);
 $con-&gt;connect();
 
@@ -239,8 +254,10 @@ $headers = array('persistent' =&gt; 'true');
 var_dump($con-&gt;send('/topic/TestQueue', $body, $headers));
 </code></pre>
 </li>
-</ul><h2>
-<a name="debugging" class="anchor" href="#debugging"><span class="octicon octicon-link"></span></a>Debugging</h2>
+</ul>
+
+<h2>
+<a id="debugging" class="anchor" href="#debugging" aria-hidden="true"><span class="octicon octicon-link"></span></a>Debugging</h2>
 
 <ul>
 <li>Connect to the server and get the server certificate chain as well as the
@@ -263,7 +280,7 @@ two functions and look at the output (with, e.g. var_dump):
           <span class="left-tail"></span>
           <span class="right-tail"></span>
         </span>
-        <p>Generated with <a href="http://pages.github.com">GitHub Pages</a> using Merlot</p>
+        <p>Generated with <a href="https://pages.github.com">GitHub Pages</a> using Merlot</p>
         <span class="octocat"></span>
       </footer>
 
